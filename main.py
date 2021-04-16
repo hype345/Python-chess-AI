@@ -196,31 +196,114 @@ def moveOrdering(moves):
         finalResult.append(obj[0])
     return finalResult
 
+# Generates Zorbists keys
+def getZorbistKey():
+    returnZKey = 0
+    for i in board.pieces(chess.QUEEN, chess.WHITE):
+        if i is not None:
+            returnZKey ^= z[0][5][i]
+    for i in board.pieces(chess.QUEEN, chess.BLACK):
+        if i is not None:
+            returnZKey ^= z[1][5][i]
+    for i in board.pieces(chess.ROOK, chess.WHITE):
+        if i is not None:
+            returnZKey ^= z[0][4][i]
+    for i in board.pieces(chess.ROOK, chess.BLACK):
+        if i is not None:
+            returnZKey ^= z[1][4][i]
+    for i in board.pieces(chess.KNIGHT, chess.WHITE):
+        if i is not None:
+            returnZKey ^= z[0][3][i]
+    for i in board.pieces(chess.KNIGHT, chess.BLACK):
+        if i is not None:
+            returnZKey ^= z[1][3][i]
+    for i in board.pieces(chess.BISHOP, chess.WHITE):
+        if i is not None:
+            returnZKey ^= z[0][2][i]
+    for i in board.pieces(chess.BISHOP, chess.BLACK):
+        if i is not None:
+            returnZKey ^= z[1][2][i]
+    for i in board.pieces(chess.PAWN, chess.WHITE):
+        if i is not None:
+            returnZKey ^= z[0][1][i]
+    for i in board.pieces(chess.PAWN, chess.BLACK):
+        if i is not None:
+            returnZKey ^= z[1][1][i]
+    for i in board.pieces(chess.KING, chess.WHITE):
+        if i is not None:
+            returnZKey ^= z[0][0][i]
+    for i in board.pieces(chess.KING, chess.BLACK):
+        if i is not None:
+            returnZKey ^= z[1][0][i]
+    if bool(board.castling_rights & chess.BB_H1):
+        returnZKey ^= zCastle[0]
+    if bool(board.castling_rights & chess.BB_A1):
+        returnZKey ^= zCastle[1]
+    if bool(board.castling_rights & chess.BB_H8):
+        returnZKey ^= zCastle[2]
+    if bool(board.castling_rights & chess.BB_A8):
+        returnZKey ^= zCastle[3]
+    if board.ep_square is not None:
+        result = None
+        square = chess.square_name(board.ep_square)
+        squareFile = square[0]
+        myfile = 1
+        for name in chess.FILE_NAMES:
+            if squareFile == name:
+                result = myfile
+            myfile += 1
+        returnZKey ^= zEnPassant[(result-1)]
+    if board.turn == False:
+        returnZKey ^= zBlackMove[0]
+    return returnZKey
 
-# Searching the best move using minimax and alphabeta algorithm with negamax implementation
-def alphabeta(alpha, beta, depthleft):
-    bestscore = -9999
+# Negamax search with alpha beta prunning and transposition tables
+def negaMax(alpha, beta, depthleft, color):
+    global timeOut
+    if time.time() - start_time > timeLimit:
+        timeOut = True
+        return alpha
+
+    alphaOrig = alpha
+
+    ttEntry = transpositionTable[getZorbistKey()%1000000]
+    if ttEntry is not None and ttEntry['depth'] >= depthleft:
+        if ttEntry['flag'] == 'EXACT':
+            return ttEntry['vaule']
+        elif ttEntry['flag'] == 'LOWERBOUND':
+            alpha = max(alpha, ttEntry['vaule'])
+        elif ttEntry['flag'] == 'UPPERBOUND':
+            beta = min(beta, ttEntry['vaule'])
+
+        if alpha >= beta:
+            return ttEntry['vaule']
+
     if (depthleft == 0):
-        return quiesce(alpha, beta)
+        return quiesce(alpha, beta, color)
+
     moves = moveOrdering(board.legal_moves)
+    bestscore = -9999
     for move in moves:
         board.push(move)
-        score = -alphabeta(-beta, -alpha, depthleft - 1)
+        bestscore = max(bestscore, -negaMax(-beta, -alpha, depthleft - 1, -color))
         board.pop()
-        if (score >= beta):
-            return score
-        if (score > bestscore):
-            bestscore = score
-        if (score > alpha):
-            alpha = score
+        alpha = max(alpha, bestscore)
+        if alpha >= beta:
+            break
+    
+    if bestscore <= alphaOrig:
+        flag = 'UPPERBOUND'
+    elif bestscore >= beta:
+        flag = 'LOWERBOUND'
+    else:
+        flag = 'EXACT'
+    transpositionTable[getZorbistKey()%1000000] = {'vaule': bestscore, 'depth': depthleft, 'flag': flag}
+
     return bestscore
 
-# Before evauling board finds quite possition (No captures)
-def quiesce(alpha, beta):
-    if board.turn:
-        stand_pat = evaluate_board()
-    else:
-        stand_pat = -(evaluate_board())
+# Evauates board at a quite position (no more captures)
+def quiesce(alpha, beta, color):
+    stand_pat = color * evaluate_board()
         
     if (stand_pat >= beta):
         return beta
@@ -230,7 +313,7 @@ def quiesce(alpha, beta):
     for move in moves:
         if board.is_capture(move):
             board.push(move)
-            score = -quiesce(-beta, -alpha)
+            score = -quiesce(-beta, -alpha, -color)
             board.pop()
 
             if (score >= beta):
@@ -241,9 +324,14 @@ def quiesce(alpha, beta):
 
 
 def selectmove(depth):
+    global timeOut
+    global fromTableorBook
     try:
         move = chess.polyglot.MemoryMappedReader("/Users/cshriver/Desktop/Chess-python/books/human.bin").weighted_choice(board).move
-        return move
+        if move is not None:
+            fromTableorBook = True
+            timeOut = True
+            return move
     except:
         if num_peices() <= 5:
             try:
@@ -265,18 +353,22 @@ def selectmove(depth):
                             if tablebase.probe_dtz(board) == 0:
                                 bestMove = move
                         board.pop()
-                return bestMove
+                if bestMove is not None:
+                    timeOut = True
+                    fromTableorBook = True
+                    return bestMove
             except:
                 print('error position not found in table base')
 
         bestMove = chess.Move.null()
+        color = getColor(int(board.turn))
         bestValue = -99999
         alpha = -100000
         beta = 100000
         moves = moveOrdering(board.legal_moves)
         for move in moves:
             board.push(move)
-            boardValue = -alphabeta(-beta, -alpha, depth - 1)
+            boardValue = -negaMax(-beta, -alpha, depth - 1, -color)
             if boardValue > bestValue:
                 bestValue = boardValue
                 bestMove = move
@@ -285,11 +377,35 @@ def selectmove(depth):
             board.pop()
         return bestMove
 
+# Uses iterative deepening to get Alphafish's best move
+def getBestMove(myTimeLimit):
+    global timeLimit
+    global start_time
+    global timeOut
+    global fromTableorBook
+
+    timeOut = False
+    start_time = time.time()
+    timeLimit = myTimeLimit
+    fromTableorBook = False
+    globalBestMove = chess.Move.null()
+    bestMove = chess.Move.null()
+    depth = 1
+    while timeOut is not True:
+        if depth > 1:
+            globalBestMove = bestMove
+        bestMove = selectmove(depth)
+        print('the best move at depth ', depth, ' is: ', bestMove)
+        depth += 1
+        if fromTableorBook is True:
+            globalBestMove = bestMove
+    return globalBestMove
+
 
 # Searching alphafish's Move
 def alphafish_move():
     if not board.is_game_over(claim_draw=True):
-        move = selectmove(4)
+        move = getBestMove(10)
         moveHistory.append(str(move))
         board.push(move)
     else:
@@ -334,6 +450,7 @@ def pgn_generator(myBoard=chess.Board()):
 
     PGN = game
 
+# Util functions
 def reset_moveHistory():
     global moveHistory
     moveHistory = []
@@ -353,6 +470,12 @@ def set_result():
 def store_FEN(fen):
     global stored_FEN
     stored_FEN =  fen
+
+def getColor(turn):
+    if turn == 0:
+        return -1
+    else:
+        return 1
 
 
 app = Flask(__name__)
@@ -482,9 +605,20 @@ if __name__ == '__main__':
     board = chess.Board()
     moveHistory = []
     stored_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
+    z = np.random.randint(0,9223372036854775807,size=(2,6,64), dtype=np.int64)
+    zEnPassant = np.random.randint(0,9223372036854775807,size=(8), dtype=np.int64)
+    zCastle = np.random.randint(0,9223372036854775807,size=(4), dtype=np.int64)
+    zBlackMove = np.random.randint(0,9223372036854775807,size=(1), dtype=np.int64)
+    transpositionTable = dict.fromkeys((range(1000000)))
+
+    timeLimit = None
+    start_time = None
+    timeOut = None
+    fromTableorBook = None
+
     PGN = None
     Result = None
-    # positionsSearched = 0
     webbrowser.open("http://127.0.0.1:5000/")
     app.run()
 

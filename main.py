@@ -395,7 +395,7 @@ def getBestMove(myTimeLimit):
         if depth > 1:
             globalBestMove = bestMove
         bestMove = selectmove(depth)
-        print('the best move at depth ', depth, ' is: ', bestMove)
+        # print('the best move at depth ', depth, ' is: ', bestMove)
         depth += 1
         if fromTableorBook is True:
             globalBestMove = bestMove
@@ -405,7 +405,7 @@ def getBestMove(myTimeLimit):
 # Searching alphafish's Move
 def alphafish_move():
     if not board.is_game_over(claim_draw=True):
-        move = getBestMove(10)
+        move = getBestMove(20)
         moveHistory.append(str(move))
         board.push(move)
     else:

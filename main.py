@@ -11,69 +11,81 @@ import time
 import traceback
 from datetime import date, datetime
 import numpy as np
+import tensorflow.keras.models as models
 
 board = chess.Board()
 
 # Evaluating the board
 pawntable = [
-    0,   0,   0,   0,   0,   0,   0,   0,
-    78,  83,  86,  73, 102,  82,  85,  90,
-    7,  29,  21,  44,  40,  31,  44,   7,
-    -17,  16,  -2,  15,  14,   0,  15, -13,
-    -26,   3,  10,   9,   6,   1,   0, -23,
-    -22,   9,   5, -11, -10,  -2,   3, -19,
-    -31,   8,  -7, -37, -36, -14,   3, -31,
-    0,   0,   0,   0,   0,   0,   0,   0]
+    0, 0, 0, 0, 0, 0, 0, 0,
+    5, 10, 10, -20, -20, 10, 10, 5,
+    5, -5, -10, 0, 0, -10, -5, 5,
+    0, 0, 0, 20, 20, 0, 0, 0,
+    5, 5, 10, 25, 25, 10, 5, 5,
+    10, 10, 20, 30, 30, 20, 10, 10,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    0, 0, 0, 0, 0, 0, 0, 0]
 
 knightstable = [
-    -66, -53, -75, -75, -10, -55, -58, -70,
-    -3,  -6, 100, -36,   4,  62,  -4, -14,
-    10,  67,   1,  74,  73,  27,  62,  -2,
-    24,  24,  45,  37,  33,  41,  25,  17,
-    -1,   5,  31,  21,  22,  35,   2,   0,
-    -18,  10,  13,  22,  18,  15,  11, -14,
-    -23, -15,   2,   0,   2,   0, -23, -20,
-    -74, -23, -26, -24, -19, -35, -22, -69]
+    -50, -40, -30, -30, -30, -30, -40, -50,
+    -40, -20, 0, 5, 5, 0, -20, -40,
+    -30, 5, 10, 15, 15, 10, 5, -30,
+    -30, 0, 15, 20, 20, 15, 0, -30,
+    -30, 5, 15, 20, 20, 15, 5, -30,
+    -30, 0, 10, 15, 15, 10, 0, -30,
+    -40, -20, 0, 0, 0, 0, -20, -40,
+    -50, -40, -30, -30, -30, -30, -40, -50]
 
 bishopstable = [
-    -59, -78, -82, -76, -23,-107, -37, -50,
-    -11,  20,  35, -42, -39,  31,   2, -22,
-    -9,  39, -32,  41,  52, -10,  28, -14,
-    25,  17,  20,  34,  26,  25,  15,  10,
-    13,  10,  17,  23,  17,  16,   0,   7,
-    14,  25,  24,  15,   8,  25,  20,  15,
-    19,  20,  11,   6,   7,   6,  20,  16,
-    -7,   2, -15, -12, -14, -15, -10, -10]
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10, 5, 0, 0, 0, 0, 5, -10,
+    -10, 10, 10, 10, 10, 10, 10, -10,
+    -10, 0, 10, 10, 10, 10, 0, -10,
+    -10, 5, 5, 10, 10, 5, 5, -10,
+    -10, 0, 5, 10, 10, 5, 0, -10,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20]
 
 rookstable = [
-    35,  29,  33,   4,  37,  33,  56,  50,
-    55,  29,  56,  67,  55,  62,  34,  60,
-    19,  35,  28,  33,  45,  27,  25,  15,
-    0,   5,  16,  13,  18,  -4,  -9,  -6,
-    -28, -35, -16, -21, -13, -29, -46, -30,
-    -42, -28, -42, -25, -25, -35, -26, -46,
-    -53, -38, -31, -26, -29, -43, -44, -53,
-    -30, -24, -18,   5,  -2, -18, -31, -32]
+    0, 0, 0, 5, 5, 0, 0, 0,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    -5, 0, 0, 0, 0, 0, 0, -5,
+    5, 10, 10, 10, 10, 10, 10, 5,
+    0, 0, 0, 0, 0, 0, 0, 0]
 
 queenstable = [
-    6,   1,  -8,-104,  69,  24,  88,  26,
-    14,  32,  60, -10,  20,  76,  57,  24,
-    -2,  43,  32,  60,  72,  63,  43,   2,
-    1, -16,  22,  17,  25,  20, -13,  -6,
-    -14, -15,  -2,  -5,  -1, -10, -20, -22,
-    -30,  -6, -13, -11, -16, -11, -16, -27,
-    -36, -18,   0, -19, -15, -15, -21, -38,
-    -39, -30, -31, -13, -31, -36, -34, -42]
+    -20, -10, -10, -5, -5, -10, -10, -20,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -10, 5, 5, 5, 5, 5, 0, -10,
+    0, 0, 5, 5, 5, 5, 0, -5,
+    -5, 0, 5, 5, 5, 5, 0, -5,
+    -10, 0, 5, 5, 5, 5, 0, -10,
+    -10, 0, 0, 0, 0, 0, 0, -10,
+    -20, -10, -10, -5, -5, -10, -10, -20]
 
 kingstable = [
-    4,  54,  47, -99, -99,  60,  83, -62,
-    -32,  10,  55,  56,  56,  55,  10,   3,
-    -62,  12, -57,  44, -67,  28,  37, -31,
-    -55,  50,  11,  -4, -19,  13,   0, -49,
-    -55, -43, -52, -28, -51, -47,  -8, -50,
-    -47, -42, -43, -79, -64, -32, -29, -32,
-    -4,   3, -14, -50, -57, -18,  13,   4,
-    17,  30,  -3, -14,   6,  -1,  40,  18]
+    20, 30, 10, 0, 0, 10, 30, 20,
+    20, 20, 0, 0, 0, 0, 20, 20,
+    -10, -20, -20, -20, -20, -20, -20, -10,
+    -20, -30, -30, -40, -40, -30, -30, -20,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30]
+
+kingstableEndGame = [
+    -50,-30,-30,-30,-30,-30,-30,-50,
+    -30,-30,  0,  0,  0,  0,-30,-30,
+    -30,-10, 20, 30, 30, 20,-10,-30,
+    -30,-10, 30, 40, 40, 30,-10,-30,
+    -30,-10, 30, 40, 40, 30,-10,-30,
+    -30,-10, 20, 30, 30, 20,-10,-30,
+    -30,-20,-10,  0,  0,-10,-20,-30,
+    -50,-40,-30,-20,-20,-30,-40,-50
+]
 
 
 def evaluate_board():
@@ -116,7 +128,7 @@ def evaluate_board():
     wq = len(board.pieces(chess.QUEEN, chess.WHITE))
     bq = len(board.pieces(chess.QUEEN, chess.BLACK))
 
-    material = 100 * (wp - bp) + 280 * (wn - bn) + 320 * (wb - bb) + 479 * (wr - br) + 929 * (wq - bq)
+    material = 100 * (wp - bp) + 320 * (wn - bn) + 330 * (wb - bb) + 500 * (wr - br) + 900 * (wq - bq)
 
     pawnsq = sum([pawntable[i] for i in board.pieces(chess.PAWN, chess.WHITE)])
     pawnsq = pawnsq + sum([-pawntable[chess.square_mirror(i)]
@@ -133,12 +145,97 @@ def evaluate_board():
     queensq = sum([queenstable[i] for i in board.pieces(chess.QUEEN, chess.WHITE)])
     queensq = queensq + sum([-queenstable[chess.square_mirror(i)]
                             for i in board.pieces(chess.QUEEN, chess.BLACK)])
-    kingsq = sum([kingstable[i] for i in board.pieces(chess.KING, chess.WHITE)])
-    kingsq = kingsq + sum([-kingstable[chess.square_mirror(i)]
-                        for i in board.pieces(chess.KING, chess.BLACK)])
+    if (num_peices() <= 12) and (len(board.pieces(chess.QUEEN, chess.WHITE)) == 0) and (len(board.pieces(chess.QUEEN, chess.BLACK)) == 0):
+        kingsq = sum([kingstableEndGame[i] for i in board.pieces(chess.KING, chess.WHITE)])
+        kingsq = kingsq + sum([-kingstableEndGame[chess.square_mirror(i)]
+                            for i in board.pieces(chess.KING, chess.BLACK)])
+    else:                     
+        kingsq = sum([kingstable[i] for i in board.pieces(chess.KING, chess.WHITE)])
+        kingsq = kingsq + sum([-kingstable[chess.square_mirror(i)]
+                            for i in board.pieces(chess.KING, chess.BLACK)])
 
     eval = material + pawnsq + knightsq + bishopsq + rooksq + queensq + kingsq
     return eval
+
+squares_index = {
+  'a': 0,
+  'b': 1,
+  'c': 2,
+  'd': 3,
+  'e': 4,
+  'f': 5,
+  'g': 6,
+  'h': 7
+}
+
+
+# example: h3 -> 17
+def square_to_index(square):
+  letter = chess.square_name(square)
+  return 8 - int(letter[1]), squares_index[letter[0]]
+
+
+def split_dims(board):
+  # this is the 3d matrix
+  board3d = np.zeros((14, 8, 8), dtype=np.int8)
+
+  # here we add the pieces's view on the matrix
+  for piece in chess.PIECE_TYPES:
+    for square in board.pieces(piece, chess.WHITE):
+      idx = np.unravel_index(square, (8, 8))
+      board3d[piece - 1][7 - idx[0]][idx[1]] = 1
+    for square in board.pieces(piece, chess.BLACK):
+      idx = np.unravel_index(square, (8, 8))
+      board3d[piece + 5][7 - idx[0]][idx[1]] = 1
+
+  # add attacks and valid moves too
+  # so the network knows what is being attacked
+  aux = board.turn
+  board.turn = chess.WHITE
+  for move in board.legal_moves:
+      i, j = square_to_index(move.to_square)
+      board3d[12][i][j] = 1
+  board.turn = chess.BLACK
+  for move in board.legal_moves:
+      i, j = square_to_index(move.to_square)
+      board3d[13][i][j] = 1
+  board.turn = aux
+
+  return board3d
+
+
+def evaluate_board_NN():
+    if board.is_checkmate():
+        if board.turn:
+            return -9999
+        else:
+            return 9999
+    if board.is_stalemate():
+        return 0
+    if board.is_insufficient_material():
+        return 0
+    if num_peices() <= 5:
+        try:
+            with chess.syzygy.open_tablebase("/Users/cshriver/Desktop/Chess-python/Syzygy-5") as tablebase:
+                    if tablebase.probe_wdl(board) > 0:
+                        if board.turn:
+                            return 9999
+                        else:
+                            return -9999
+                    elif tablebase.probe_wdl(board) < 0:
+                        if board.turn:
+                            return -9999
+                        else:
+                            return 9999
+                    elif tablebase.probe_wdl(board) == 0:
+                        return 0
+        except:
+            print(num_peices(), board.fen())
+            print('error position not found in table base though it should be there')
+
+    board3d = split_dims(board)
+    board3d = np.expand_dims(board3d, 0)
+    return model.predict(board3d)[0][0]  
 
 # find number of piece left on board to see if we should look at tablebases
 def num_peices():
@@ -303,7 +400,11 @@ def negaMax(alpha, beta, depthleft, color):
 
 # Evauates board at a quite position (no more captures)
 def quiesce(alpha, beta, color):
-    stand_pat = color * evaluate_board()
+    global NN
+    if NN:   
+        stand_pat = color * evaluate_board_NN()
+    else:
+        stand_pat = color * evaluate_board()
         
     if (stand_pat >= beta):
         return beta
@@ -378,13 +479,15 @@ def selectmove(depth):
         return bestMove
 
 # Uses iterative deepening to get Alphafish's best move
-def getBestMove(myTimeLimit):
+def getBestMove(myTimeLimit, ifNN):
     global timeLimit
     global start_time
     global timeOut
     global fromTableorBook
+    global NN
 
     timeOut = False
+    NN = ifNN
     start_time = time.time()
     timeLimit = myTimeLimit
     fromTableorBook = False
@@ -404,8 +507,10 @@ def getBestMove(myTimeLimit):
 
 # Searching alphafish's Move
 def alphafish_move():
+    global transpositionTable
     if not board.is_game_over(claim_draw=True):
-        move = getBestMove(20)
+        transpositionTable = dict.fromkeys((range(1000000)))
+        move = getBestMove(20, False)
         moveHistory.append(str(move))
         board.push(move)
     else:
@@ -606,6 +711,8 @@ if __name__ == '__main__':
     moveHistory = []
     stored_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
+    model = models.load_model('model.h5')
+
     z = np.random.randint(0,9223372036854775807,size=(2,6,64), dtype=np.int64)
     zEnPassant = np.random.randint(0,9223372036854775807,size=(8), dtype=np.int64)
     zCastle = np.random.randint(0,9223372036854775807,size=(4), dtype=np.int64)
@@ -616,6 +723,7 @@ if __name__ == '__main__':
     start_time = None
     timeOut = None
     fromTableorBook = None
+    NN = None
 
     PGN = None
     Result = None
